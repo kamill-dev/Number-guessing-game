@@ -345,6 +345,7 @@ class NumberGuessingGUI:
         return f"Guess a number between {self.lowest} and {self.highest}"
 
 
+
 if __name__ == '__main__':
     root = tk.Tk()
     app = NumberGuessingGUI(root)
