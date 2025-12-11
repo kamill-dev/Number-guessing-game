@@ -1,36 +1,70 @@
-⭐ PYTHON NUMBER GUESSING GAME
+⭐ Python Number Guessing Game (GUI)
 
-A simple interactive guessing game where the player tries to guess a randomly generated number.
+A fun and interactive number guessing game built with Python Tkinter. Try to guess the randomly generated number as quickly as possible while enjoying hints, multiplayer mode, timer, and score tracking.
 
-🔧 REQUIREMENTS
+🔧 Requirements
 
-You must have Python installed on your system
+Python 3 installed on your system
 
-You must have VS Code or any other code editor to run/edit the script
+Tkinter (usually comes pre-installed with Python)
 
-▶️ HOW TO USE
+VS Code or any other code editor to run/edit the script
 
-Run the script in your terminal:
+▶️ How to Run
 
-python "Guessing game.py"
+Open a terminal in the folder containing your script (main.py or number_guessing_gui.py).
+
+Run the script:
+
+python main.py
 
 
-Enter a number between 1 and 100 when prompted
+Interact with the GUI:
 
-The game will tell you if your guess is too high, too low, or correct
+Enter your guess in the input box
 
-Try to guess the number in as few attempts as possible
+Press Guess or hit Enter
 
-The game ends when you guess the correct number
+Use Hints, Reset Game, Multiplayer, and Scoreboard features
 
-🚀 FEATURES
+🚀 Features
 
-Random number generation between 1 and 100
+🎲 Random number generation with four difficulty levels: Easy, Medium, Hard, Extreme
 
-Input validation (only accepts numbers)
+⏱ Timer tracks how long it takes to guess
 
-Range checking
+🧩 Hints system: parity, range, or divisibility hints (max 3 per game)
 
-Guess counter to track attempts
+🏆 Scoreboard saves best scores for each difficulty in scores.json
 
-User-friendly feedback messages
+🔄 Multiplayer mode for two players
+
+🔔 Cross-platform beep for guesses (Windows winsound or Tkinter bell fallback)
+
+📊 Guess progress bar shows closeness to the correct number
+
+🌗 Light/Dark themes for the GUI
+
+🎮 Gameplay
+
+Select a difficulty level from the dropdown
+
+Type a number within the specified range
+
+Press Guess
+
+Feedback will indicate if your guess is too high, too low, or close
+
+Use Hints if you get stuck (limited to 3 per game)
+
+The game ends when you guess correctly, and your score is updated if it’s a personal best
+
+⚙️ Notes
+
+Score tracking is saved in scores.json automatically
+
+Works on Windows, Linux, and macOS
+
+Supports two-player mode, switching turns after each guess
+
+Timer and progress bar provide live feedback during the game.
