@@ -1,15 +1,14 @@
-
 import json
-import os
 import random
 import time
 import threading
-import sys
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-# Cross-platform beep
+# -------------------------------
+# Utility: Cross-platform beep
+# -------------------------------
 try:
     import winsound
     def beep():
@@ -17,336 +16,352 @@ try:
 except Exception:
     def beep():
         try:
-            # Tk bell as fallback
             root = tk._default_root
             if root:
                 root.bell()
         except Exception:
             pass
 
-SCORES_FILE = Path("scores.json")
 
-DEFAULT_SCORES = {"Easy": None, "Medium": None, "Hard": None, "Extreme": None}
+# -------------------------------
+# Files
+# -------------------------------
+SCORES_FILE = Path("scores.json")
+HISTORY_FILE = Path("history.json")
+
+DEFAULT_SCORES = {
+    "Easy": None,
+    "Medium": None,
+    "Hard": None,
+    "Extreme": None
+}
+
 
 def load_scores():
     if SCORES_FILE.exists():
         try:
-            with open(SCORES_FILE, "r") as f:
-                return json.load(f)
+            return json.load(open(SCORES_FILE))
         except Exception:
-            return DEFAULT_SCORES.copy()
+            pass
     return DEFAULT_SCORES.copy()
 
-def save_scores(scores):
-    with open(SCORES_FILE, "w") as f:
-        json.dump(scores, f, indent=2)
 
+def save_scores(scores):
+    json.dump(scores, open(SCORES_FILE, "w"), indent=2)
+
+
+# -------------------------------
+# Main App
+# -------------------------------
 class NumberGuessingGUI:
+    """
+    Feature-rich Number Guessing Game using Tkinter.
+    Includes difficulty levels, multiplayer mode, hints,
+    timers, persistent scores, and theming.
+    """
+
     def __init__(self, master):
         self.master = master
-        master.title("Number Guessing Game")
-        master.resizable(False, False)
+        self.master.title("Number Guessing Game")
+        self.master.resizable(False, False)
+        self.center_window()
 
-        # Game state
+        # Game config
         self.difficulties = {
-            "Easy": (1, 50, 999),
-            "Medium": (1, 100, 999),
-            "Hard": (1, 500, 999),
-            "Extreme": (1, 1000, 999)
+            "Easy": (1, 50),
+            "Medium": (1, 100),
+            "Hard": (1, 500),
+            "Extreme": (1, 1000)
         }
+
         self.scores = load_scores()
+        self.theme = "light"
+
         self.reset_state()
-
-        # UI setup
-        self.style = ttk.Style(master)
-        self.theme = 'light'
         self.setup_ui()
-
-    def reset_state(self):
-        self.level = "Medium"
-        self.lowest, self.highest, _ = self.difficulties[self.level]
-        self.answer = random.randint(self.lowest, self.highest)
-        self.guesses = 0
-        self.start_time = None
-        self.timer_running = False
-        self.hints_used = 0
-        self.max_hints = 3
-        self.multiplayer = False
-        self.current_player = 1
-        self.players = {1: {'name': 'Player 1', 'guesses': 0}, 2: {'name': 'Player 2', 'guesses': 0}}
-
-    # UI builders
-    def setup_ui(self):
-        pad = 8
-        frame = ttk.Frame(self.master, padding=pad)
-        frame.grid(row=0, column=0, sticky='NSEW')
-
-        title = ttk.Label(frame, text='🔥 Number Guessing Game', font=('Segoe UI', 16, 'bold'))
-        title.grid(row=0, column=0, columnspan=3, pady=(0, 6))
-
-        # Difficulty
-        ttk.Label(frame, text='Difficulty:').grid(row=1, column=0, sticky='w')
-        self.diff_var = tk.StringVar(value=self.level)
-        diff_menu = ttk.OptionMenu(frame, self.diff_var, self.level, *self.difficulties.keys(), command=self.change_difficulty)
-        diff_menu.grid(row=1, column=1, sticky='w')
-
-        # Theme toggle
-        self.theme_btn = ttk.Button(frame, text='Toggle Theme', command=self.toggle_theme)
-        self.theme_btn.grid(row=1, column=2, sticky='e')
-
-        # Info area
-        self.info_label = ttk.Label(frame, text=self._info_text(), anchor='center')
-        self.info_label.grid(row=2, column=0, columnspan=3, pady=(6, 6))
-
-        # Entry and guess button
-        self.entry_var = tk.StringVar()
-        entry = ttk.Entry(frame, textvariable=self.entry_var, width=20)
-        entry.grid(row=3, column=0, columnspan=2, sticky='w')
-        entry.bind('<Return>', lambda e: self.handle_guess())
-
-        self.guess_btn = ttk.Button(frame, text='Guess', command=self.handle_guess)
-        self.guess_btn.grid(row=3, column=2, sticky='e')
-
-        # Hints and progress
-        self.hint_btn = ttk.Button(frame, text=f'Hint ({self.max_hints})', command=self.give_hint)
-        self.hint_btn.grid(row=4, column=0, sticky='w', pady=(6, 0))
-
-        self.timer_label = ttk.Label(frame, text='Time: 00:00')
-        self.timer_label.grid(row=4, column=1)
-
-        self.closeness = tk.DoubleVar(value=0)
-        self.progress = ttk.Progressbar(frame, maximum=100.0, variable=self.closeness)
-        self.progress.grid(row=5, column=0, columnspan=3, sticky='ew', pady=(6, 0))
-
-        # Feedback
-        self.feedback = ttk.Label(frame, text='Press Guess to start', font=('Segoe UI', 10))
-        self.feedback.grid(row=6, column=0, columnspan=3, pady=(6, 0))
-
-        # Multiplayer & Reset
-        self.multi_btn = ttk.Button(frame, text='Multiplayer (Off)', command=self.toggle_multiplayer)
-        self.multi_btn.grid(row=7, column=0, sticky='w', pady=(6, 0))
-
-        self.reset_btn = ttk.Button(frame, text='Reset Game', command=self.reset_game)
-        self.reset_btn.grid(row=7, column=1)
-
-        self.stats_btn = ttk.Button(frame, text='Scoreboard', command=self.show_scoreboard)
-        self.stats_btn.grid(row=7, column=2, sticky='e')
-
-        # Scoreboard list at bottom
-        self.scoreboard = tk.Text(frame, height=6, width=44, state='disabled')
-        self.scoreboard.grid(row=8, column=0, columnspan=3, pady=(8, 0))
-        self.update_scoreboard_text()
-
-        # Start with theme
         self.apply_theme()
 
-    # Core game logic
-    def change_difficulty(self, value):
-        self.level = value
-        self.lowest, self.highest, _ = self.difficulties[value]
-        self.reset_game(start_fresh=False)
+        # Shortcuts
+        self.master.bind("<Control-r>", lambda e: self.reset_game())
+        self.master.bind("<Control-h>", lambda e: self.give_hint())
+        self.master.bind("<Escape>", lambda e: self.master.quit())
 
-    def reset_game(self, start_fresh=True):
-        self.reset_state()
+    # -------------------------------
+    # State
+    # -------------------------------
+    def reset_state(self):
+        self.level = "Medium"
+        self.lowest, self.highest = self.difficulties[self.level]
         self.answer = random.randint(self.lowest, self.highest)
-        self.entry_var.set('')
-        self.feedback.config(text=f'Guess a number between {self.lowest} and {self.highest}')
-        self.closeness.set(0)
-        self.update_hint_button()
-        self.stop_timer()
+        self.guesses = 0
+        self.hints_used = 0
+        self.max_hints = 3
+        self.start_time = None
+        self.timer_running = False
+
+        self.multiplayer = False
+        self.current_player = 1
+        self.players = {
+            1: {"name": "Player 1", "guesses": 0},
+            2: {"name": "Player 2", "guesses": 0}
+        }
+
+    # -------------------------------
+    # UI
+    # -------------------------------
+    def setup_ui(self):
+        frame = ttk.Frame(self.master, padding=10)
+        frame.grid()
+
+        ttk.Label(
+            frame,
+            text="🔥 Number Guessing Game",
+            font=("Segoe UI", 16, "bold")
+        ).grid(row=0, column=0, columnspan=3, pady=5)
+
+        ttk.Label(frame, text="Difficulty:").grid(row=1, column=0, sticky="w")
+        self.diff_var = tk.StringVar(value=self.level)
+        ttk.OptionMenu(
+            frame, self.diff_var, self.level,
+            *self.difficulties.keys(),
+            command=self.change_difficulty
+        ).grid(row=1, column=1, sticky="w")
+
+        ttk.Button(
+            frame, text="Toggle Theme",
+            command=self.toggle_theme
+        ).grid(row=1, column=2)
+
+        self.info_label = ttk.Label(frame)
+        self.info_label.grid(row=2, column=0, columnspan=3, pady=5)
+
+        self.entry_var = tk.StringVar()
+        ttk.Entry(frame, textvariable=self.entry_var, width=18)\
+            .grid(row=3, column=0, columnspan=2, sticky="w")
+
+        ttk.Button(frame, text="Guess", command=self.handle_guess)\
+            .grid(row=3, column=2)
+
+        self.hint_btn = ttk.Button(
+            frame, text="Hint (3)", command=self.give_hint
+        )
+        self.hint_btn.grid(row=4, column=0, pady=5, sticky="w")
+
+        self.timer_label = ttk.Label(frame, text="Time: 00:00")
+        self.timer_label.grid(row=4, column=1)
+
+        self.progress_val = tk.DoubleVar()
+        ttk.Progressbar(
+            frame, maximum=100, variable=self.progress_val
+        ).grid(row=5, column=0, columnspan=3, sticky="ew")
+
+        self.feedback = ttk.Label(frame)
+        self.feedback.grid(row=6, column=0, columnspan=3, pady=5)
+
+        ttk.Button(
+            frame, text="Multiplayer (Off)",
+            command=self.toggle_multiplayer
+        ).grid(row=7, column=0)
+
+        ttk.Button(
+            frame, text="Reset Game",
+            command=self.reset_game
+        ).grid(row=7, column=1)
+
+        ttk.Button(
+            frame, text="Scoreboard",
+            command=self.show_scoreboard
+        ).grid(row=7, column=2)
+
+        ttk.Label(
+            frame,
+            text="Shortcuts: Ctrl+R Reset | Ctrl+H Hint | Esc Exit",
+            font=("Segoe UI", 8)
+        ).grid(row=8, column=0, columnspan=3, pady=4)
+
         self.update_info()
-        if start_fresh:
-            beep()
 
-    def toggle_multiplayer(self):
-        self.multiplayer = not self.multiplayer
-        self.multi_btn.config(text=f'Multiplayer ({"On" if self.multiplayer else "Off"})')
-        self.reset_game()
-
-    def give_hint(self):
-        if self.hints_used >= self.max_hints:
-            messagebox.showinfo('No hints', 'You used all hints.')
-            return
-        self.hints_used += 1
-        # Hint types rotate: parity, range, divisible
-        hint_type = self.hints_used % 3
-        if hint_type == 1:
-            hint = 'even' if self.answer % 2 == 0 else 'odd'
-            message = f"Hint: The answer is {hint}."
-        elif hint_type == 2:
-            span = max(1, (self.highest - self.lowest) // 6)
-            low = max(self.lowest, self.answer - span)
-            high = min(self.highest, self.answer + span)
-            message = f"Hint: The answer is between {low} and {high}."
-        else:
-            for d in [5, 3, 7, 11]:
-                if self.answer % d == 0:
-                    message = f"Hint: The answer is divisible by {d}."
-                    break
-            else:
-                message = "Hint: The answer is a prime-ish (no small divisors)."
-        messagebox.showinfo('Hint', message)
-        self.update_hint_button()
-
-    def update_hint_button(self):
-        remaining = self.max_hints - self.hints_used
-        self.hint_btn.config(text=f'Hint ({remaining})')
-
+    # -------------------------------
+    # Game Logic
+    # -------------------------------
     def handle_guess(self):
-        val = self.entry_var.get().strip()
-        if not val:
+        value = self.entry_var.get().strip()
+        if not value.isdigit():
+            self.feedback.config(text="Enter a valid number.")
             return
-        if not val.lstrip('-').isdigit():
-            self.feedback.config(text='Enter an integer value.')
-            return
-        guess = int(val)
+
+        guess = int(value)
         if guess < self.lowest or guess > self.highest:
-            self.feedback.config(text=f'Out of range: choose {self.lowest}-{self.highest}.')
+            self.feedback.config(
+                text=f"Out of range ({self.lowest}-{self.highest})"
+            )
             return
 
         if not self.timer_running:
             self.start_timer()
 
         self.guesses += 1
-        if self.multiplayer:
-            self.players[self.current_player]['guesses'] += 1
+        self.players[self.current_player]["guesses"] += 1
 
-        dist = abs(guess - self.answer)
-        closeness_pct = max(0.0, 100.0 - (dist / max(1, self.highest - self.lowest)) * 100.0)
-        self.closeness.set(closeness_pct)
+        distance = abs(guess - self.answer)
+        span = self.highest - self.lowest
+        self.progress_val.set(max(0, 100 - (distance / span) * 100))
 
         if guess == self.answer:
             self.end_game()
             return
 
-        # Feedback severity
-        if dist <= (self.highest - self.lowest) * 0.02:
-            fb = 'Red hot! Almost there 🔥'
-        elif dist <= (self.highest - self.lowest) * 0.06:
-            fb = 'Very warm 👍'
-        elif dist <= (self.highest - self.lowest) * 0.12:
-            fb = 'Warm'
-        else:
-            fb = 'Cold ❄️'
-
-        direction = 'higher' if guess < self.answer else 'lower'
-        self.feedback.config(text=f'{fb} Try {direction}.')
+        direction = "higher" if guess < self.answer else "lower"
+        self.feedback.config(text=f"Try {direction}!")
+        beep()
 
         if self.multiplayer:
             self.switch_player()
 
-        self.entry_var.set('')
-        beep()
-        self.update_info()
-
-    def switch_player(self):
-        self.current_player = 2 if self.current_player == 1 else 1
+        self.entry_var.set("")
         self.update_info()
 
     def end_game(self):
         self.stop_timer()
-        elapsed = int(time.time() - self.start_time) if self.start_time else 0
-        if self.multiplayer:
-            winner = self.current_player
-            msg = f"🎉 {self.players[winner]['name']} wins!\nGuesses: {self.players[winner]['guesses']}\nTime: {elapsed}s"
-        else:
-            msg = f"🎉 Correct! The answer was {self.answer}\nGuesses: {self.guesses}\nTime: {elapsed}s"
+        elapsed = int(time.time() - self.start_time)
 
-        messagebox.showinfo('You Won!', msg)
+        if self.level == "Extreme" and elapsed > 60:
+            messagebox.showwarning(
+                "Time Up", "Extreme mode timeout!"
+            )
+            self.reset_game()
+            return
+
+        msg = (
+            f"🎉 Correct!\n"
+            f"Answer: {self.answer}\n"
+            f"Guesses: {self.guesses}\n"
+            f"Time: {elapsed}s"
+        )
+
+        messagebox.showinfo("You Win!", msg)
         beep()
+
         self.update_scores(elapsed)
-        self.update_scoreboard_text()
+        self.save_history(elapsed)
         self.reset_game(start_fresh=False)
 
-    def update_scores(self, elapsed):
-        key = self.level
-        score_value = {'guesses': self.guesses, 'time': elapsed}
-        current = self.scores.get(key)
-        better = False
-        if current is None:
-            better = True
-        else:
-            # lower guesses better, then lower time
-            if score_value['guesses'] < current['guesses']:
-                better = True
-            elif score_value['guesses'] == current['guesses'] and score_value['time'] < current['time']:
-                better = True
-        if better:
-            self.scores[key] = score_value
-            save_scores(self.scores)
-
-    # Timer
+    # -------------------------------
+    # Helpers
+    # -------------------------------
     def start_timer(self):
         self.start_time = time.time()
         self.timer_running = True
-        threading.Thread(target=self._timer_thread, daemon=True).start()
+        threading.Thread(target=self._timer_loop, daemon=True).start()
+
+    def _timer_loop(self):
+        while self.timer_running:
+            elapsed = int(time.time() - self.start_time)
+            self.timer_label.config(
+                text=f"Time: {elapsed//60:02d}:{elapsed%60:02d}"
+            )
+            time.sleep(1)
 
     def stop_timer(self):
         self.timer_running = False
 
-    def _timer_thread(self):
-        while self.timer_running:
-            elapsed = int(time.time() - self.start_time)
-            mins = elapsed // 60
-            secs = elapsed % 60
-            self.timer_label.config(text=f'Time: {mins:02d}:{secs:02d}')
-            time.sleep(1)
+    def give_hint(self):
+        if self.hints_used >= self.max_hints:
+            messagebox.showinfo("Hints", "No hints left!")
+            return
 
-    # UI helpers
+        self.hints_used += 1
+        self.hint_btn.config(
+            text=f"Hint ({self.max_hints - self.hints_used})"
+        )
+
+        hint = "Even" if self.answer % 2 == 0 else "Odd"
+        messagebox.showinfo("Hint", f"The number is {hint}.")
+
+    def toggle_multiplayer(self):
+        self.multiplayer = not self.multiplayer
+        if self.multiplayer:
+            self.players[1]["name"] = simpledialog.askstring(
+                "Player 1", "Enter Player 1 name:"
+            ) or "Player 1"
+            self.players[2]["name"] = simpledialog.askstring(
+                "Player 2", "Enter Player 2 name:"
+            ) or "Player 2"
+        self.reset_game()
+
+    def switch_player(self):
+        self.current_player = 2 if self.current_player == 1 else 1
+
     def update_info(self):
         if self.multiplayer:
-            info = f"{self.players[self.current_player]['name']}'s turn — Guess {self.lowest}-{self.highest}"
+            self.info_label.config(
+                text=f"{self.players[self.current_player]['name']}'s turn"
+            )
         else:
-            info = f"Guess a number between {self.lowest} and {self.highest}"
-        self.info_label.config(text=info)
+            self.info_label.config(
+                text=f"Guess a number between {self.lowest}-{self.highest}"
+            )
+
+    def change_difficulty(self, level):
+        self.level = level
+        self.lowest, self.highest = self.difficulties[level]
+        self.reset_game()
+
+    def reset_game(self, start_fresh=True):
+        self.reset_state()
+        self.answer = random.randint(self.lowest, self.highest)
+        self.feedback.config(text="")
+        self.progress_val.set(0)
+        self.hint_btn.config(text="Hint (3)")
+        self.stop_timer()
+        self.update_info()
+        if start_fresh:
+            beep()
+
+    def update_scores(self, elapsed):
+        current = self.scores.get(self.level)
+        score = {"guesses": self.guesses, "time": elapsed}
+        if current is None or score["guesses"] < current["guesses"]:
+            self.scores[self.level] = score
+            save_scores(self.scores)
+
+    def save_history(self, elapsed):
+        record = {
+            "difficulty": self.level,
+            "guesses": self.guesses,
+            "time": elapsed,
+            "date": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        history = []
+        if HISTORY_FILE.exists():
+            history = json.load(open(HISTORY_FILE))
+        history.append(record)
+        json.dump(history[-20:], open(HISTORY_FILE, "w"), indent=2)
 
     def show_scoreboard(self):
-        sb = "Best Scores:\n"
-        for k in self.difficulties.keys():
-            s = self.scores.get(k)
-            if s:
-                sb += f"{k}: {s['guesses']} guesses, {s['time']}s\n"
-            else:
-                sb += f"{k}: -\n"
-        messagebox.showinfo('Scoreboard', sb)
-
-    def update_scoreboard_text(self):
-        content = "Best Scores:\n"
-        for k in self.difficulties.keys():
-            s = self.scores.get(k)
-            if s:
-                content += f"{k}: {s['guesses']} guesses, {s['time']}s\n"
-            else:
-                content += f"{k}: -\n"
-        self.scoreboard.config(state='normal')
-        self.scoreboard.delete('1.0', tk.END)
-        self.scoreboard.insert(tk.END, content)
-        self.scoreboard.config(state='disabled')
+        msg = "🏆 Best Scores\n\n"
+        for k, v in self.scores.items():
+            msg += f"{k}: {v['guesses']} guesses, {v['time']}s\n" if v else f"{k}: -\n"
+        messagebox.showinfo("Scoreboard", msg)
 
     def toggle_theme(self):
-        self.theme = 'dark' if self.theme == 'light' else 'light'
+        self.theme = "dark" if self.theme == "light" else "light"
         self.apply_theme()
 
     def apply_theme(self):
-        if self.theme == 'dark':
-            try:
-                self.style.theme_use('clam')
-            except Exception:
-                pass
-            self.master.configure(bg='#2b2b2b')
-        else:
-            try:
-                self.style.theme_use('default')
-            except Exception:
-                pass
-            self.master.configure(bg=None)
+        style = ttk.Style()
+        style.theme_use("clam" if self.theme == "dark" else "default")
 
-    def _info_text(self):
-        return f"Guess a number between {self.lowest} and {self.highest}"
+    def center_window(self, w=420, h=520):
+        x = (self.master.winfo_screenwidth() - w) // 2
+        y = (self.master.winfo_screenheight() - h) // 2
+        self.master.geometry(f"{w}x{h}+{x}+{y}")
 
 
-
-if __name__ == '__main__':
+# -------------------------------
+# Run App
+# -------------------------------
+if __name__ == "__main__":
     root = tk.Tk()
-    app = NumberGuessingGUI(root)
+    NumberGuessingGUI(root)
     root.mainloop()
