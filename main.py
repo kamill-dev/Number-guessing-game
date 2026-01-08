@@ -184,11 +184,7 @@ class NumberGuessingGUI:
     # -------------------------------
     # Game Logic  (you can change game logic here)
     # -------------------------------
-    # def handle_guess(self):
-    #     value = self.entry_var.get().strip()
-    #     if not value.isdigit():
-    #         self.feedback.config(text="Please Enter a valid number.")
-    #         return
+  
 
     def handle_guess(self):
         value = self.entry_var.get().strip()
@@ -253,7 +249,7 @@ class NumberGuessingGUI:
         self.reset_game(start_fresh=False)
 
     # -------------------------------
-    # Helpers
+    # Helpers  (Default hint count 3, you can change it here)
     # -------------------------------
     def start_timer(self):
         self.start_time = time.time()
@@ -269,7 +265,7 @@ class NumberGuessingGUI:
             time.sleep(1)
 
     def stop_timer(self):
-        self.timer_running = False
+      self.timer_running = False
 
     def give_hint(self):
         if self.hints_used >= self.max_hints:
