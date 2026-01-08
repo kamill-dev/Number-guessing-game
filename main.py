@@ -24,7 +24,7 @@ except Exception:
 
 
 # -------------------------------
-# Files
+# score will save in scores.json and history will save in history.json
 # -------------------------------
 SCORES_FILE = Path("scores.json")
 HISTORY_FILE = Path("history.json")
