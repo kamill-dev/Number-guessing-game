@@ -1,3 +1,7 @@
+# NOTE: To run thiscode, ensure you have Python installed with Tkinter support.
+
+
+
 import json
 import random
 import time
