@@ -182,8 +182,14 @@ class NumberGuessingGUI:
         self.update_info()
 
     # -------------------------------
-    # Game Logic
+    # Game Logic  (you can change game logic here)
     # -------------------------------
+    # def handle_guess(self):
+    #     value = self.entry_var.get().strip()
+    #     if not value.isdigit():
+    #         self.feedback.config(text="Please Enter a valid number.")
+    #         return
+
     def handle_guess(self):
         value = self.entry_var.get().strip()
         if not value.isdigit():
