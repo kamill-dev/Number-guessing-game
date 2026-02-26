@@ -10,9 +10,9 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-# -------------------------------
+
 # Utility: Cross-platform beep
-# -------------------------------
+
 try:
     import winsound
     def beep():
@@ -26,10 +26,8 @@ except Exception:
         except Exception:
             pass
 
+# score will save in scores.json 
 
-# -------------------------------
-# score will save in scores.json and history will save in history.json
-# -------------------------------
 SCORES_FILE = Path("scores.json")
 HISTORY_FILE = Path("history.json")
 
@@ -371,3 +369,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     NumberGuessingGUI(root)
     root.mainloop()
+
